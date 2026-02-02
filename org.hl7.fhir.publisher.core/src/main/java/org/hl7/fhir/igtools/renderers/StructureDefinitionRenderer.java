@@ -487,7 +487,8 @@ public class StructureDefinitionRenderer extends CanonicalRenderer {
       return "";
     else {
       sdr.getContext().setStructureMode(mode);
-      return new XhtmlComposer(XhtmlComposer.HTML).compose(sdr.generateTable(new RenderingStatus(), defnFile, sd, true, destDir, false, sd.getId(), false, corePath, "", sd.getKind() == StructureDefinitionKind.LOGICAL, false, outputTracker, false, gen.withUniqueLocalPrefix(all ? mc(mode)+"a" : mc(mode)), toTabs ? ANCHOR_PREFIX_DIFF : ANCHOR_PREFIX_SNAP, resE, all ? "DA" : "D"));
+      String table = new XhtmlComposer(XhtmlComposer.HTML).compose(sdr.generateTable(new RenderingStatus(), defnFile, sd, true, destDir, false, sd.getId(), false, corePath, "", sd.getKind() == StructureDefinitionKind.LOGICAL, false, outputTracker, false, gen.withUniqueLocalPrefix(all ? mc(mode)+"a" : mc(mode)), toTabs ? ANCHOR_PREFIX_DIFF : ANCHOR_PREFIX_SNAP, resE, all ? "DA" : "D"));
+      return wrapWithContextFilter(table, toTabs);
     }
   }
 
@@ -510,7 +511,8 @@ public class StructureDefinitionRenderer extends CanonicalRenderer {
       return "";
     else {
       sdr.getContext().setStructureMode(mode);
-      return new XhtmlComposer(XhtmlComposer.HTML).compose(sdr.generateTable(new RenderingStatus(), defnFile, sd, false, destDir, false, sd.getId(), true, corePath, "", sd.getKind() == StructureDefinitionKind.LOGICAL, true, outputTracker, false, gen.withUniqueLocalPrefix(all ? mc(mode)+"sa" : mc(mode)+"s"), toTabs ? ANCHOR_PREFIX_SNAP : ANCHOR_PREFIX_SNAP, resE, all ? "SA" : "S"));
+      String table = new XhtmlComposer(XhtmlComposer.HTML).compose(sdr.generateTable(new RenderingStatus(), defnFile, sd, false, destDir, false, sd.getId(), true, corePath, "", sd.getKind() == StructureDefinitionKind.LOGICAL, true, outputTracker, false, gen.withUniqueLocalPrefix(all ? mc(mode)+"sa" : mc(mode)+"s"), toTabs ? ANCHOR_PREFIX_SNAP : ANCHOR_PREFIX_SNAP, resE, all ? "SA" : "S"));
+      return wrapWithContextFilter(table, toTabs);
     }
   }
 
@@ -519,7 +521,8 @@ public class StructureDefinitionRenderer extends CanonicalRenderer {
       return "";
     else {
       sdr.getContext().setStructureMode(mode);
-      return new XhtmlComposer(XhtmlComposer.HTML).compose(sdr.generateTable(new RenderingStatus(), defnFile, sd, false, destDir, false, sd.getId(), true, corePath, "", sd.getKind() == StructureDefinitionKind.LOGICAL, false, outputTracker, false, gen.withUniqueLocalPrefix(all ? mc(mode)+"oa" : mc(mode)+"o"), toTabs ? ANCHOR_PREFIX_SNAP : ANCHOR_PREFIX_SNAP, resE, all ? "OA" : "O"));
+      String table = new XhtmlComposer(XhtmlComposer.HTML).compose(sdr.generateTable(new RenderingStatus(), defnFile, sd, false, destDir, false, sd.getId(), true, corePath, "", sd.getKind() == StructureDefinitionKind.LOGICAL, false, outputTracker, false, gen.withUniqueLocalPrefix(all ? mc(mode)+"oa" : mc(mode)+"o"), toTabs ? ANCHOR_PREFIX_SNAP : ANCHOR_PREFIX_SNAP, resE, all ? "OA" : "O"));
+      return wrapWithContextFilter(table, toTabs);
     }
   }
 
@@ -534,7 +537,7 @@ public class StructureDefinitionRenderer extends CanonicalRenderer {
       sdr.getContext().setStructureMode(mode);
       org.hl7.fhir.utilities.xhtml.XhtmlNode table = sdr.generateTable(new RenderingStatus(), defnFile, sdCopy, false, destDir, false, sdCopy.getId(), true, corePath, "", sd.getKind() == StructureDefinitionKind.LOGICAL, true, outputTracker, false, gen.withUniqueLocalPrefix(all ? mc(mode)+"ka" :mc(mode)+"k"), toTabs ? ANCHOR_PREFIX_KEY : ANCHOR_PREFIX_SNAP, resE, all ? "KA" : "K");
 
-      return composer.compose(table);
+      return wrapWithContextFilter(composer.compose(table), toTabs);
     }
   }
 
@@ -549,8 +552,26 @@ public class StructureDefinitionRenderer extends CanonicalRenderer {
       sdCopy.getSnapshot().setElement(getMustSupportElements());
       org.hl7.fhir.utilities.xhtml.XhtmlNode table = sdr.generateTable(new RenderingStatus(), defnFile, sdCopy, false, destDir, false, sdCopy.getId(), true, corePath, "", sd.getKind() == StructureDefinitionKind.LOGICAL, false, outputTracker, true, gen.withUniqueLocalPrefix(all ? mc(mode)+"ma" :mc(mode)+"m"), toTabs ? ANCHOR_PREFIX_MS : ANCHOR_PREFIX_SNAP, resE, all ? "MA" : "M");
 
-      return composer.compose(table);
+      return wrapWithContextFilter(composer.compose(table), toTabs);
     }
+  }
+
+  private String wrapWithContextFilter(String tableHtml, boolean includeFilter) {
+    if (!includeFilter) {
+      return tableHtml;
+    }
+    StringBuilder builder = new StringBuilder();
+    builder.append("<div class=\"context-filter\">");
+    builder.append("<p><b>Context</b></p>");
+    builder.append("<p>");
+    builder.append("<label class=\"context-filter-option\"><input type=\"checkbox\" id=\"context-filter-1\" name=\"context-filter\"/> Checkbox 1</label> ");
+    builder.append("<label class=\"context-filter-option\"><input type=\"checkbox\" id=\"context-filter-2\" name=\"context-filter\"/> Checkbox 2</label> ");
+    builder.append("<label class=\"context-filter-option\"><input type=\"checkbox\" id=\"context-filter-3\" name=\"context-filter\"/> Checkbox 3</label> ");
+    builder.append("<label class=\"context-filter-option\"><input type=\"checkbox\" id=\"context-filter-4\" name=\"context-filter\"/> Checkbox 4</label>");
+    builder.append("</p>");
+    builder.append("</div>");
+    builder.append(tableHtml);
+    return builder.toString();
   }
 
   protected List<ElementDefinition> getMustSupportElements() {

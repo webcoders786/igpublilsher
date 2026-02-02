@@ -1,0 +1,95 @@
+trigger: none
+pr: none
+
+schedules:
+- cron: "0 0 * * *"
+  displayName: "nightly-xig-build-process"
+  branches:
+    include: 
+    - master
+  always: true # whether to always run the pipeline or only if there have been source code changes since the last successful scheduled run. The default is false.
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+- group: XIG_VARIABLE_GROUP
+- name: XIG_CACHE_FOLDER
+  value: $(Pipeline.Workspace)/xig_cache
+- name: XIG_DB_FOLDER
+  value: $(Pipeline.Workspace)/xig_db
+- name: XIG_DB_FILE
+  value: xig.db
+
+jobs:
+- job: xig_step_0
+  timeoutInMinutes: 150
+  steps:
+  - task: Bash@3
+    displayName: 'Download latest publisher'
+    inputs:
+      targetType: 'inline'
+      script: 'wget https://github.com/HL7/fhir-ig-publisher/releases/latest/download/publisher.jar'
+
+  - task: Bash@3
+    displayName: 'Make db folder'
+    inputs:
+      targetType: 'inline'
+      script: 'mkdir $(XIG_DB_FOLDER)'
+
+  - task: Bash@3
+    displayName: 'Make cache folder'
+    inputs:
+      targetType: 'inline'
+      script: 'mkdir $(XIG_CACHE_FOLDER)'
+
+  - task: Bash@3
+    displayName: 'Run publisher with xig param step 0 (all steps)'
+    inputs:
+      targetType: 'inline'
+      script: 'java -Xmx7168m -jar ./publisher.jar -xig $(XIG_DB_FOLDER)/$(XIG_DB_FILE) -xig-cache $(XIG_CACHE_FOLDER) -xig-step 0'
+
+  - task: PublishPipelineArtifact@1
+    inputs:
+      targetPath: $(XIG_DB_FOLDER)
+      artifactName: xig_step_0_db
+
+- job: transfer_db_to_remote
+  dependsOn:
+  - xig_step_0
+  steps:
+  - task: DownloadPipelineArtifact@2
+    inputs:
+      buildType: 'current'
+      artifactName: xig_step_0_db
+      targetPath: $(XIG_DB_FOLDER)
+
+  - task: DownloadSecureFile@1
+    inputs:
+      secureFile: 'xig.private.key' 
+
+  # This step includes chmod to the private key to avoid ssh complaining about permissions.
+  - task: Bash@3
+    displayName: 'Clean previous results on remote'
+    retryCountOnTaskFailure: 5
+    inputs:
+      targetType: 'inline'
+      script: |
+        chmod 400 $(Agent.TempDirectory)/xig.private.key
+        ssh -o "StrictHostKeyChecking=no" -i $(Agent.TempDirectory)/xig.private.key $(XIG_USER)@$(XIG_SERVER) 'if [ -d "$(XIG_TARGET_DIRECTORY)" ]; then find $(XIG_TARGET_DIRECTORY) -name "*" -delete; fi && mkdir $(XIG_TARGET_DIRECTORY)'
+
+  - task: Bash@3
+    displayName: 'Copy tar to remote'
+    retryCountOnTaskFailure: 5
+    inputs:
+      targetType: 'inline'
+      script: |
+        scp -o "StrictHostKeyChecking=no" -i $(Agent.TempDirectory)/xig.private.key $(XIG_DB_FOLDER)/$(XIG_DB_FILE) $(XIG_USER)@$(XIG_SERVER):$(XIG_TARGET_DIRECTORY)/
+
+  - task: Bash@3
+    displayName: 'Leave a timestamp'
+    retryCountOnTaskFailure: 5
+    inputs:
+      targetType: 'inline'
+      script: |
+        ssh -o "StrictHostKeyChecking=no" -i $(Agent.TempDirectory)/xig.private.key $(XIG_USER)@$(XIG_SERVER) 'date +%Y%m%d%H%M%S%Z > $(XIG_TARGET_DIRECTORY)/timestamp.txt'
